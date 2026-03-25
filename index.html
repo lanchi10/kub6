@@ -1,0 +1,884 @@
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>קובייה של רגשות</title>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --cube-size: min(280px, 52vmin);
+      --half: calc(var(--cube-size) / 2);
+      --radius: 22px;
+      --text: #5a7d95;
+    }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(150deg, #ddeef6 0%, #cfe0ec 100%);
+      font-family: 'Heebo', 'Segoe UI', Arial, sans-serif;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+
+    #fireworksCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+    .emotion-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      padding: 16px 30px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.93), rgba(220,240,255,0.93));
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 24px rgba(90,125,149,0.18);
+      border-bottom: 3px solid rgba(90,125,149,0.12);
+      opacity: 0; transform: translateY(-100%);
+      transition: opacity 0.5s cubic-bezier(.34,1.56,.64,1), transform 0.5s cubic-bezier(.34,1.56,.64,1);
+    }
+    .emotion-banner.show { opacity: 1; transform: translateY(0); }
+    .banner-emoji { font-size: clamp(2.4rem, 8vmin, 3.8rem); }
+    .banner-name  { font-size: clamp(1.9rem, 6vmin, 3rem); font-weight: 900; color: var(--text); letter-spacing: 0.08em; }
+
+    .app-title {
+      position: relative; z-index: 1;
+      font-size: clamp(1.3rem, 4vw, 2rem); font-weight: 300; color: var(--text);
+      letter-spacing: 0.06em; margin-bottom: clamp(18px, 4vh, 38px); opacity: 0.9;
+    }
+
+    /* ── Settings button ── */
+    .settings-btn {
+      position: fixed; top: 14px; left: 14px; z-index: 300;
+      background: rgba(255,255,255,0.78); border: 1px solid rgba(90,125,149,0.2);
+      border-radius: 10px; padding: 9px 14px; font-size: 0.95rem; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1); font-family: inherit; color: #446378;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .settings-btn:hover  { background: rgba(255,255,255,0.96); }
+    .settings-btn:active { transform: scale(0.96); }
+
+    .overlay {
+      position: fixed; inset: 0; background: rgba(60,90,110,0.35);
+      backdrop-filter: blur(4px); z-index: 298; display: none; opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .overlay.active { display: block; opacity: 1; }
+
+    .settings-panel {
+      position: fixed; top: 50%; left: 50%; z-index: 299;
+      transform: translate(-50%, -50%) scale(0.92);
+      background: white; padding: 26px 24px; border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      display: none; flex-direction: column; gap: 16px;
+      width: min(360px, 92vw); font-family: inherit; color: #334;
+      opacity: 0; transition: opacity 0.25s, transform 0.25s;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .settings-panel.active { display: flex; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    .settings-panel h3 { font-size: 1.15rem; font-weight: 700; color: var(--text); border-bottom: 2px solid #e8f0f6; padding-bottom: 8px; }
+    .section-label { font-size: 0.8rem; font-weight: 700; color: #aac; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: -8px; }
+
+    .setting-row { display: flex; flex-direction: column; gap: 6px; }
+    .setting-row label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.93rem; color: #446378;
+    }
+    .setting-row label .val {
+      font-weight: 700; background: #e8f0f6; padding: 2px 8px;
+      border-radius: 6px; font-size: 0.86rem;
+    }
+    .setting-row input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 6px;
+      background: linear-gradient(90deg, #74b9c8, #a8d8e8);
+      border-radius: 3px; cursor: pointer; outline: none;
+    }
+    .setting-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px;
+      background: var(--text); border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer;
+    }
+
+    .toggle-row {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 1rem; font-weight: 700; color: #334; cursor: pointer;
+      background: #f0f8fc; border-radius: 10px; padding: 10px 14px;
+    }
+    .switch { position: relative; width: 48px; height: 26px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider-sw {
+      position: absolute; inset: 0; background: #cdd; border-radius: 13px;
+      transition: background 0.3s; cursor: pointer;
+    }
+    .slider-sw::before {
+      content: ''; position: absolute; width: 20px; height: 20px;
+      left: 3px; top: 3px; background: white; border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25); transition: transform 0.3s;
+    }
+    .switch input:checked + .slider-sw { background: #5a9db8; }
+    .switch input:checked + .slider-sw::before { transform: translateX(22px); }
+
+    .row2 { display: flex; gap: 10px; }
+    .select-field {
+      border: 1px solid #c8dce8; border-radius: 8px; padding: 7px 10px;
+      font-family: inherit; font-size: 0.9rem; color: #334; cursor: pointer;
+      background: white; flex: 1;
+    }
+
+    .spin-now-btn {
+      background: linear-gradient(135deg, #5a9db8, #446378); color: white;
+      border: none; padding: 13px; border-radius: 10px; cursor: pointer;
+      font-size: 1.1rem; font-weight: 700; font-family: inherit; letter-spacing: 0.04em;
+      box-shadow: 0 4px 12px rgba(70,100,120,0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .spin-now-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(70,100,120,0.4); }
+    .spin-now-btn:active { transform: translateY(0); }
+    .spin-now-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* Sound preview buttons */
+    .preview-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px;
+    }
+    .preview-btn {
+      border: 1.5px solid #c8dce8; border-radius: 8px; padding: 7px 4px;
+      font-family: inherit; font-size: 0.78rem; cursor: pointer; background: #f5fbff;
+      color: #446378; transition: background 0.15s, transform 0.1s; text-align: center;
+    }
+    .preview-btn:hover  { background: #ddeef6; }
+    .preview-btn:active { transform: scale(0.95); }
+
+    .close-btn {
+      background: #eef4f8; color: var(--text); border: none; padding: 10px;
+      border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-family: inherit;
+      transition: background 0.2s;
+    }
+    .close-btn:hover { background: #ddeef6; }
+
+    /* ── 3D Scene ── */
+    .scene {
+      position: relative; z-index: 1;
+      width: var(--cube-size); height: var(--cube-size);
+      perspective: calc(var(--cube-size) * 3.2);
+      cursor: grab; touch-action: none; flex-shrink: 0;
+    }
+    .scene.dragging { cursor: grabbing; }
+
+    .cube-glow {
+      position: absolute; inset: -20px; border-radius: 30px;
+      box-shadow: 0 0 0 transparent; transition: box-shadow 0.5s ease; pointer-events: none;
+    }
+    .cube-glow.active {
+      box-shadow: 0 0 60px 18px rgba(120,200,255,0.42), 0 0 110px 35px rgba(160,180,255,0.22);
+    }
+
+    .cube {
+      width: 100%; height: 100%; position: relative;
+      transform-style: preserve-3d;
+      transform: rotateX(-22deg) rotateY(32deg);
+    }
+
+    .face {
+      position: absolute; inset: 0;
+      width: var(--cube-size); height: var(--cube-size);
+      border-radius: var(--radius);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      border: 3px solid rgba(255,255,255,0.72); overflow: hidden;
+      box-shadow: inset 0 0 50px rgba(255,255,255,0.4);
+      transition: border-color 0.3s, filter 0.3s, box-shadow 0.3s;
+    }
+    .face.selected {
+      border-color: white;
+      box-shadow: inset 0 0 50px rgba(255,255,255,0.55), 0 0 0 5px rgba(255,255,255,0.9), 0 0 40px rgba(255,255,255,0.7);
+      filter: brightness(1.12);
+    }
+    .face::after {
+      content: ''; position: absolute; inset: 0; border-radius: var(--radius);
+      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+      transform: translateX(-150%); transition: none;
+    }
+    .face.settling::after { transform: translateX(150%); transition: transform 0.65s ease; }
+
+    .emotion-img {
+      width: 62%; height: 62%; object-fit: contain; border-radius: 14px;
+      pointer-events: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.18));
+    }
+    .face-label {
+      font-size: clamp(1rem, 3vmin, 1.35rem); font-weight: 700;
+      color: rgba(0,0,0,0.55); letter-spacing: 0.04em; pointer-events: none;
+      text-shadow: 0 1px 3px rgba(255,255,255,0.6);
+    }
+
+    .face-front  { transform: translateZ(var(--half));               background: linear-gradient(135deg,#FFE082,#FFCA28); }
+    .face-back   { transform: rotateY(180deg)  translateZ(var(--half)); background: linear-gradient(135deg,#90CAF9,#64B5F6); }
+    .face-right  { transform: rotateY(90deg)   translateZ(var(--half)); background: linear-gradient(135deg,#EF9A9A,#E57373); }
+    .face-left   { transform: rotateY(-90deg)  translateZ(var(--half)); background: linear-gradient(135deg,#FFCC80,#FFA726); }
+    .face-top    { transform: rotateX(90deg)   translateZ(var(--half)); background: linear-gradient(135deg,#CE93D8,#BA68C8); }
+    .face-bottom { transform: rotateX(-90deg)  translateZ(var(--half)); background: linear-gradient(135deg,#A5D6A7,#66BB6A); }
+
+    /* ── sound wave indicator ── */
+    .sound-wave {
+      position: fixed; bottom: 36px; right: 16px; z-index: 1;
+      display: flex; align-items: flex-end; gap: 3px; height: 26px;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .sound-wave.show { opacity: 1; }
+    .sound-wave span {
+      display: block; width: 4px; background: #74b9c8; border-radius: 2px;
+      animation: wave-bar 0.7s ease-in-out infinite alternate;
+    }
+    .sound-wave span:nth-child(1) { height: 8px;  animation-delay: 0s; }
+    .sound-wave span:nth-child(2) { height: 18px; animation-delay: .1s; }
+    .sound-wave span:nth-child(3) { height: 24px; animation-delay: .2s; }
+    .sound-wave span:nth-child(4) { height: 14px; animation-delay: .3s; }
+    .sound-wave span:nth-child(5) { height: 8px;  animation-delay: .15s; }
+    @keyframes wave-bar { to { transform: scaleY(0.3); } }
+
+    .spin-indicator { position: relative; z-index: 1; margin-top: clamp(14px,3vh,28px); width: 44px; height: 44px; opacity: 0; transition: opacity 0.3s; }
+    .spin-indicator.show { opacity: 1; }
+    .spin-indicator svg { animation: spin-ring 1s linear infinite; }
+    @keyframes spin-ring { to { transform: rotate(360deg); } }
+
+    .sel-name {
+      position: relative; z-index: 1; min-height: 2.5rem;
+      font-size: clamp(1.4rem, 4.5vmin, 2.2rem); font-weight: 900; color: var(--text);
+      opacity: 0; transform: translateY(10px);
+      transition: opacity 0.4s ease, transform 0.4s ease; letter-spacing: 0.06em;
+    }
+    .sel-name.show { opacity: 1; transform: translateY(0); }
+
+    .hint { position: fixed; bottom: 14px; inset-inline: 0; text-align: center; font-size: clamp(0.7rem,2vmin,0.82rem); color: #9ab8cc; font-weight: 300; pointer-events: none; z-index: 1; }
+  </style>
+</head>
+<body>
+
+<canvas id="fireworksCanvas"></canvas>
+
+<div class="emotion-banner" id="emotionBanner">
+  <span class="banner-emoji" id="bannerEmoji"></span>
+  <span class="banner-name"  id="bannerName"></span>
+</div>
+
+<button class="settings-btn" id="settingsBtn">⚙️ הגדרות מטפל</button>
+<div class="overlay" id="overlay"></div>
+
+<div class="settings-panel" id="settingsPanel">
+  <h3>⚙️ הגדרות מרפא/ה בעיסוק</h3>
+
+  <div class="section-label">סיבוב</div>
+
+  <div class="toggle-row">
+    <label class="switch"><input type="checkbox" id="autoRotateToggle"><span class="slider-sw"></span></label>
+    <span>סיבוב אוטומטי רנדומלי</span>
+  </div>
+
+  <div class="setting-row">
+    <label><span>המתנה בין סיבובים</span><span class="val" id="dwellVal">4 שנ׳</span></label>
+    <input type="range" id="dwellSlider" min="1" max="12" step="0.5" value="4">
+  </div>
+
+  <div class="setting-row">
+    <label><span>מהירות סיבוב</span><span class="val" id="speedVal">בינונית</span></label>
+    <input type="range" id="speedSlider" min="1" max="5" step="1" value="3">
+  </div>
+
+  <div class="row2">
+    <div class="setting-row" style="flex:1">
+      <label><span>זיקוקים</span></label>
+      <select id="fireworksIntensity" class="select-field">
+        <option value="0">כבוי</option>
+        <option value="1">עדין</option>
+        <option value="2" selected>רגיל</option>
+        <option value="3">חגיגי</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section-label">שמע</div>
+
+  <div class="toggle-row">
+    <label class="switch"><input type="checkbox" id="soundToggle" checked><span class="slider-sw"></span></label>
+    <span>צלילי רגשות</span>
+  </div>
+
+  <div class="setting-row">
+    <label><span>עוצמת קול</span><span class="val" id="volumeVal">70%</span></label>
+    <input type="range" id="volumeSlider" min="0" max="100" step="5" value="70">
+  </div>
+
+  <div class="section-label">תצוגה מקדימה — לחץ להשמעה</div>
+  <div class="preview-grid" id="previewGrid"></div>
+
+  <button class="spin-now-btn" id="spinNowBtn">🎲 סובב עכשיו!</button>
+  <button class="close-btn"    id="closeSettingsBtn">סגור</button>
+</div>
+
+<h1 class="app-title">איך אתה מרגיש?</h1>
+
+<div class="scene" id="scene">
+  <div class="cube-glow" id="cubeGlow"></div>
+  <div class="cube" id="cube">
+    <div class="face face-front"  data-emotion="שמח"  data-emoji="😊"><img class="emotion-img" src="happy.png"  alt="שמח"> <span class="face-label">שמח</span></div>
+    <div class="face face-back"   data-emotion="עצוב"  data-emoji="😞"><img class="emotion-img" src="sad.png"   alt="עצוב"><span class="face-label">עצוב</span></div>
+    <div class="face face-right"  data-emotion="כועס"  data-emoji="😠"><img class="emotion-img" src="angry.png" alt="כועס"><span class="face-label">כועס</span></div>
+    <div class="face face-left"   data-emotion="צוחק"  data-emoji="😂"><img class="emotion-img" src="laugh.png" alt="צוחק"><span class="face-label">צוחק</span></div>
+    <div class="face face-top"    data-emotion="בוכה"  data-emoji="😭"><img class="emotion-img" src="cry.png"   alt="בוכה"><span class="face-label">בוכה</span></div>
+    <div class="face face-bottom" data-emotion="עייף"  data-emoji="😴"><img class="emotion-img" src="tired.png" alt="עייף"><span class="face-label">עייף</span></div>
+  </div>
+</div>
+
+<div class="spin-indicator" id="spinIndicator">
+  <svg width="44" height="44" viewBox="0 0 44 44">
+    <circle cx="22" cy="22" r="18" fill="none" stroke="#90caf9" stroke-width="3" stroke-dasharray="80 30" stroke-linecap="round"/>
+  </svg>
+</div>
+
+<div class="sel-name" id="selName"></div>
+
+<div class="sound-wave" id="soundWave">
+  <span></span><span></span><span></span><span></span><span></span>
+</div>
+
+<p class="hint">גרור לסיבוב &nbsp;•&nbsp; לחץ על פרצוף לבחירה</p>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════
+   DOM refs
+═══════════════════════════════════════════ */
+const cube       = document.getElementById('cube');
+const scene      = document.getElementById('scene');
+const cubeGlow   = document.getElementById('cubeGlow');
+const selName    = document.getElementById('selName');
+const spinInd    = document.getElementById('spinIndicator');
+const banner     = document.getElementById('emotionBanner');
+const bannerEmoji= document.getElementById('bannerEmoji');
+const bannerName = document.getElementById('bannerName');
+const canvas     = document.getElementById('fireworksCanvas');
+const ctx        = canvas.getContext('2d');
+const soundWave  = document.getElementById('soundWave');
+
+const settingsBtn   = document.getElementById('settingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const overlay       = document.getElementById('overlay');
+const closeBtn      = document.getElementById('closeSettingsBtn');
+const autoToggle    = document.getElementById('autoRotateToggle');
+const dwellSlider   = document.getElementById('dwellSlider');
+const speedSlider   = document.getElementById('speedSlider');
+const dwellVal      = document.getElementById('dwellVal');
+const speedVal      = document.getElementById('speedVal');
+const fxSelect      = document.getElementById('fireworksIntensity');
+const soundToggle   = document.getElementById('soundToggle');
+const volSlider     = document.getElementById('volumeSlider');
+const volVal        = document.getElementById('volumeVal');
+const spinNowBtn    = document.getElementById('spinNowBtn');
+const previewGrid   = document.getElementById('previewGrid');
+
+/* ═══════════════════════════════════════════
+   מצב
+═══════════════════════════════════════════ */
+let rotX = -22, rotY = 32;
+let isDragging = false, hasDragged = false, lastX = 0, lastY = 0;
+let activeFace = null;
+let isAnimating = false;
+let autoTimer = null, bannerTimer = null;
+
+let isAutoEnabled = false;
+let dwellMs = 4000;
+let spinDuration = 2100;
+let fxIntensity = 2;
+let soundEnabled = true;
+let masterVolume = 0.7;
+
+const SENSITIVITY = 0.50;
+const SPEED_DUR   = { 1:3500, 2:2800, 3:2100, 4:1400, 5:900  };
+const SPEED_LBL   = { 1:'איטי', 2:'איטי-בינוני', 3:'בינונית', 4:'מהיר', 5:'מהיר מאוד' };
+
+const FACE_ANGLES = [
+  { x:0,  y:0   }, // front  שמח
+  { x:0,  y:180 }, // back   עצוב
+  { x:0,  y:-90 }, // right  כועס
+  { x:0,  y:90  }, // left   צוחק
+  { x:90, y:0   }, // top    בוכה
+  { x:-90,y:0   }, // bottom עייף
+];
+
+/* ═══════════════════════════════════════════
+   Web Audio
+═══════════════════════════════════════════ */
+let audioCtx = null, masterGain = null;
+let spinSource = null, spinGain = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = soundEnabled ? masterVolume : 0;
+    masterGain.connect(audioCtx.destination);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function tone(freq, start, dur, type = 'sine', vol = 0.28, detune = 0) {
+  if (!soundEnabled) return;
+  const ac = ensureAudio();
+  const osc = ac.createOscillator();
+  const g   = ac.createGain();
+  osc.type = type; osc.frequency.value = freq; osc.detune.value = detune;
+  const t = ac.currentTime + start;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.015);
+  g.gain.setValueAtTime(vol, t + Math.max(0, dur - 0.05));
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  osc.connect(g); g.connect(masterGain);
+  osc.start(t); osc.stop(t + dur + 0.06);
+}
+
+/* שאגת הסיבוב — רעש לבן עם sweep פילטר */
+function playSpinWhoosh(ms) {
+  if (!soundEnabled) return;
+  const ac = ensureAudio();
+  const dur = ms / 1000;
+  const sr  = ac.sampleRate;
+  const buf = ac.createBuffer(1, Math.ceil(sr * (dur + 0.2)), sr);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+
+  spinSource = ac.createBufferSource();
+  spinSource.buffer = buf;
+
+  const filt = ac.createBiquadFilter();
+  filt.type = 'bandpass'; filt.Q.value = 1.2;
+
+  spinGain = ac.createGain();
+  const t = ac.currentTime;
+
+  // filter sweep — חוויית "שואג ועוצר"
+  filt.frequency.setValueAtTime(100, t);
+  filt.frequency.linearRampToValueAtTime(700, t + dur * 0.35);
+  filt.frequency.linearRampToValueAtTime(900, t + dur * 0.55);
+  filt.frequency.linearRampToValueAtTime(200, t + dur * 0.82);
+  filt.frequency.linearRampToValueAtTime(80,  t + dur);
+
+  spinGain.gain.setValueAtTime(0, t);
+  spinGain.gain.linearRampToValueAtTime(0.35, t + 0.12);
+  spinGain.gain.setValueAtTime(0.35, t + dur - 0.35);
+  spinGain.gain.linearRampToValueAtTime(0, t + dur);
+
+  spinSource.connect(filt); filt.connect(spinGain); spinGain.connect(masterGain);
+  spinSource.start(t); spinSource.stop(t + dur + 0.2);
+}
+
+function stopSpinWhoosh() {
+  if (spinGain && audioCtx) {
+    try { spinGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1); } catch(e){}
+  }
+}
+
+/* ═══════════════════════════════════════════
+   מנגינות רגשות — כל אחת ייחודית
+═══════════════════════════════════════════ */
+const EMOTIONS_DEF = [
+  { name:'שמח',  emoji:'😊', sound: playHappy   },
+  { name:'עצוב', emoji:'😞', sound: playSad     },
+  { name:'כועס', emoji:'😠', sound: playAngry   },
+  { name:'צוחק', emoji:'😂', sound: playLaugh   },
+  { name:'בוכה', emoji:'😭', sound: playCry     },
+  { name:'עייף', emoji:'😴', sound: playTired   },
+];
+
+/* שמח 😊 — קפיצי, מג'ורי, מעלה ↑ */
+function playHappy() {
+  const notes = [[523,0,.14],[659,.13,.14],[784,.26,.14],[1047,.39,.3]];
+  notes.forEach(([f,s,d]) => tone(f,s,d,'sine',0.3));
+  // ספארקל עדין אחרי הארפג'ו
+  [[1047,.7,.07],[1175,.78,.07],[1319,.86,.1],[1047,.98,.28]].forEach(([f,s,d]) => tone(f,s,d,'sine',0.2));
+}
+
+/* עצוב 😞 — איטי, מינורי, יורד ↓ */
+function playSad() {
+  tone(440,0,.75,'sine',0.24);
+  tone(392,.7,.75,'sine',0.22);
+  tone(330,1.4,.85,'sine',0.19);
+  tone(262,2.2,1.2,'sine',0.15);
+  // אנחה
+  const ac = ensureAudio();
+  const t = ac.currentTime + 0.4;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(300,t); o.frequency.linearRampToValueAtTime(200,t+1);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.12,t+0.15);
+  g.gain.linearRampToValueAtTime(0,t+1);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+1.1);
+}
+
+/* כועס 😠 — נוקשה, דיסוננס, חד */
+function playAngry() {
+  // טריטון — אינטרוול הכי מטריד
+  tone(220,0,.4,'sawtooth',0.28);
+  tone(311,.03,.4,'sawtooth',0.24);
+  // דקירות
+  [0,.38,.54,.68,.82].forEach(s => tone(165,s,.1,'square',0.32));
+  tone(220,.95,.5,'sawtooth',0.2);
+  // סיום — crash קצר
+  const ac = ensureAudio();
+  const t = ac.currentTime + 1.45;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sawtooth'; o.frequency.value = 110;
+  g.gain.setValueAtTime(0.3,t); g.gain.linearRampToValueAtTime(0,t+0.25);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.3);
+}
+
+/* צוחק 😂 — קליל, קפצני, מהיר */
+function playLaugh() {
+  // סקלה קפיצית
+  [523,587,659,784,880,1047].forEach((f,i) => tone(f,i*.085,.07,'triangle',0.27));
+  // צחוק: הה-הה-הה
+  [[523,.55,.12],[659,.73,.12],[784,.91,.12],[1047,1.09,.3]].forEach(([f,s,d]) => tone(f,s,d,'triangle',0.28));
+  // עוד קפיצה קטנה
+  tone(1319,1.45,.12,'triangle',0.2);
+  tone(1047,1.6,.25,'triangle',0.22);
+}
+
+/* בוכה 😭 — ויברטו, יורד, נשבר */
+function playCry() {
+  if (!soundEnabled) return;
+  const ac = ensureAudio();
+  const t = ac.currentTime;
+  // קול בכי עם ויברטו
+  const osc = ac.createOscillator();
+  const lfo = ac.createOscillator();
+  const lg  = ac.createGain();
+  const g   = ac.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(440,t);
+  osc.frequency.linearRampToValueAtTime(370,t+.7);
+  osc.frequency.linearRampToValueAtTime(330,t+1.4);
+  osc.frequency.linearRampToValueAtTime(260,t+2.0);
+  lfo.frequency.value = 5.5; lg.gain.value = 9;
+  lfo.connect(lg); lg.connect(osc.frequency);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.26,t+.08);
+  g.gain.setValueAtTime(0.26,t+1.7); g.gain.linearRampToValueAtTime(0,t+2.1);
+  osc.connect(g); g.connect(masterGain);
+  lfo.start(t); osc.start(t); lfo.stop(t+2.2); osc.stop(t+2.2);
+  // יללה
+  tone(294,.55,.22,'sine',0.18);
+  tone(247,.82,.35,'sine',0.14);
+}
+
+/* עייף 😴 — נמוך, איטי, פיהוק */
+function playTired() {
+  tone(196,0,.95,'sine',0.28);
+  tone(175,.9,.95,'sine',0.24);
+  tone(147,1.8,1.4,'sine',0.2);
+  // פיהוק — גלייד עולה–יורד
+  if (!soundEnabled) return;
+  const ac  = ensureAudio();
+  const t  = ac.currentTime + 0.3;
+  const o  = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(120,t);
+  o.frequency.linearRampToValueAtTime(220,t+0.7);
+  o.frequency.linearRampToValueAtTime(100,t+1.7);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.2,t+0.2);
+  g.gain.linearRampToValueAtTime(0,t+1.8);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+1.9);
+}
+
+/* map רגש → פונקציית שמע */
+const SOUND_MAP = {};
+EMOTIONS_DEF.forEach(e => { SOUND_MAP[e.name] = e.sound; });
+
+/* ═══════════════════════════════════════════
+   Canvas — זיקוקים
+═══════════════════════════════════════════ */
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+let particles = [], fxRaf = null;
+const COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff922b','#cc5de8','#f06595','#74c0fc','#ffec99','#ffffff'];
+
+class Particle {
+  constructor(x, y, color) {
+    this.x = x; this.y = y;
+    const sp = (4 + Math.random() * 7) * fxIntensity;
+    const a  = Math.random() * Math.PI * 2;
+    this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp - 2;
+    this.r = 2.5 + Math.random() * 3.5;
+    this.alpha = 1; this.decay = 0.013 + Math.random() * 0.01;
+    this.gravity = 0.13; this.color = color;
+    this.trail = [];
+  }
+  update() {
+    this.trail.push({x:this.x, y:this.y});
+    if (this.trail.length > 7) this.trail.shift();
+    this.vy += this.gravity; this.x += this.vx; this.y += this.vy;
+    this.alpha -= this.decay;
+  }
+  draw() {
+    ctx.save();
+    this.trail.forEach((p, i) => {
+      ctx.globalAlpha = (i / this.trail.length) * this.alpha * 0.4;
+      ctx.fillStyle = this.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, this.r * 0.4, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha = this.alpha;
+    ctx.fillStyle = this.color;
+    ctx.shadowBlur = 14; ctx.shadowColor = this.color;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function launchFireworks() {
+  if (fxIntensity === 0) return;
+  const r   = scene.getBoundingClientRect();
+  const cx  = r.left + r.width / 2;
+  const cy  = r.top  + r.height / 2;
+  const cnt = [0, 30, 60, 100][fxIntensity];
+  const bursts = [0, 1, 2, 3][fxIntensity];
+  for (let b = 0; b < bursts; b++) {
+    setTimeout(() => {
+      const ox = cx + (Math.random()-.5)*130*fxIntensity;
+      const oy = cy + (Math.random()-.5)*90 *fxIntensity;
+      const col = COLORS[Math.floor(Math.random()*COLORS.length)];
+      for (let i = 0; i < cnt; i++) particles.push(new Particle(ox, oy, col));
+    }, b * 200);
+  }
+  if (!fxRaf) fxRaf = requestAnimationFrame(fxLoop);
+}
+
+function fxLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.alpha > 0.02);
+  particles.forEach(p => { p.update(); p.draw(); });
+  fxRaf = particles.length > 0 ? requestAnimationFrame(fxLoop) : null;
+}
+
+/* ═══════════════════════════════════════════
+   בחירת פאה
+═══════════════════════════════════════════ */
+function selectFace(faceEl) {
+  if (!faceEl) return;
+  if (activeFace) activeFace.classList.remove('selected');
+  activeFace = faceEl;
+  faceEl.classList.add('selected');
+  faceEl.classList.remove('settling');
+  requestAnimationFrame(() => faceEl.classList.add('settling'));
+  setTimeout(() => faceEl.classList.remove('settling'), 750);
+
+  const emotion = faceEl.dataset.emotion;
+  const emoji   = faceEl.dataset.emoji;
+
+  selName.classList.remove('show');
+  requestAnimationFrame(() => {
+    selName.textContent = emotion;
+    requestAnimationFrame(() => selName.classList.add('show'));
+  });
+
+  bannerEmoji.textContent = emoji;
+  bannerName.textContent  = emotion;
+  banner.classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => banner.classList.remove('show'), 3200);
+}
+
+/* ═══════════════════════════════════════════
+   אנימציית סיבוב
+═══════════════════════════════════════════ */
+let animStart, animFromX, animFromY, animToX, animToY, animDur, animTarget;
+
+function easeOutQuint(t)  { return 1 - Math.pow(1-t, 5); }
+function easeInQuint(t)   { return t * t * t * t * t; }
+
+// שלב האצה + שלב האטה מחודדת (תחושת פיסיקה)
+function spinEase(t) {
+  if (t < 0.55) return easeInQuint(t / 0.55) * 0.72;
+  return 0.72 + easeOutQuint((t - 0.55) / 0.45) * 0.28;
+}
+
+function animateSpin(ts) {
+  if (!animStart) animStart = ts;
+  const raw  = Math.min((ts - animStart) / animDur, 1);
+  const ease = spinEase(raw);
+
+  rotX = animFromX + (animToX - animFromX) * ease;
+  rotY = animFromY + (animToY - animFromY) * ease;
+  cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+
+  if (raw < 1) {
+    requestAnimationFrame(animateSpin);
+  } else {
+    rotX = animToX; rotY = animToY;
+    isAnimating = false;
+    spinInd.classList.remove('show');
+    cubeGlow.classList.remove('active');
+    spinNowBtn.disabled = false;
+    soundWave.classList.remove('show');
+
+    const faces = document.querySelectorAll('.face');
+    if (animTarget !== undefined) {
+      selectFace(faces[animTarget]);
+      if (soundEnabled) {
+        const fn = SOUND_MAP[faces[animTarget].dataset.emotion];
+        if (fn) fn();
+      }
+    }
+
+    launchFireworks();
+    scheduleNext();
+  }
+}
+
+function spinToFace(idx) {
+  if (isAnimating) return;
+  isAnimating = true;
+  spinNowBtn.disabled = true;
+  spinInd.classList.add('show');
+  cubeGlow.classList.add('active');
+  soundWave.classList.add('show');
+  clearTimeout(autoTimer);
+
+  const target    = FACE_ANGLES[idx];
+  const extraSpins = 2 + Math.floor(Math.random() * 3);
+  const dir        = Math.random() < 0.5 ? 1 : -1;
+
+  animFromX = rotX;
+  animFromY = rotY;
+
+  let dY = ((target.y - rotY) % 360 + 360) % 360;
+  if (dY > 180) dY -= 360;
+
+  animToX = target.x;
+  animToY = rotY + dY + dir * extraSpins * 360;
+  animDur = spinDuration;
+  animTarget = idx;
+  animStart  = null;
+
+  playSpinWhoosh(spinDuration);
+  requestAnimationFrame(animateSpin);
+}
+
+function randomSpin() {
+  if (!isAutoEnabled || isDragging) return;
+  spinToFace(Math.floor(Math.random() * 6));
+}
+
+function scheduleNext() {
+  if (isAutoEnabled) autoTimer = setTimeout(randomSpin, dwellMs);
+}
+
+/* ═══════════════════════════════════════════
+   Pointer — גרירה ובחירה
+═══════════════════════════════════════════ */
+scene.addEventListener('pointerdown', (e) => {
+  ensureAudio(); // unlock audio on first touch
+  if (isAnimating) { stopSpinWhoosh(); isAnimating = false; spinInd.classList.remove('show'); cubeGlow.classList.remove('active'); soundWave.classList.remove('show'); spinNowBtn.disabled = false; }
+  isDragging = true; hasDragged = false;
+  lastX = e.clientX; lastY = e.clientY;
+  cube.style.transition = 'none';
+  scene.setPointerCapture(e.pointerId);
+  scene.classList.add('dragging');
+  clearTimeout(autoTimer);
+  e.preventDefault();
+});
+
+scene.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) hasDragged = true;
+  rotY += dx * SENSITIVITY; rotX -= dy * SENSITIVITY;
+  lastX = e.clientX; lastY = e.clientY;
+  cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+});
+
+scene.addEventListener('pointerup', (e) => {
+  scene.classList.remove('dragging'); isDragging = false;
+  if (!hasDragged) {
+    let t = e.target;
+    while (t && t !== scene) {
+      if (t.classList.contains('face')) {
+        selectFace(t);
+        if (soundEnabled) { const fn = SOUND_MAP[t.dataset.emotion]; if (fn) fn(); }
+        break;
+      }
+      t = t.parentElement;
+    }
+  }
+  scheduleNext();
+});
+
+scene.addEventListener('pointercancel', () => {
+  isDragging = false; scene.classList.remove('dragging'); scheduleNext();
+});
+
+/* ═══════════════════════════════════════════
+   פאנל הגדרות
+═══════════════════════════════════════════ */
+function openSettings()  {
+  settingsPanel.style.display = 'flex'; overlay.classList.add('active');
+  requestAnimationFrame(() => settingsPanel.classList.add('active'));
+}
+function closeSettings() {
+  settingsPanel.classList.remove('active'); overlay.classList.remove('active');
+  setTimeout(() => { settingsPanel.style.display = 'none'; }, 260);
+}
+settingsBtn.addEventListener('click', openSettings);
+closeBtn.addEventListener('click', closeSettings);
+overlay.addEventListener('click', closeSettings);
+
+autoToggle.addEventListener('change', e => {
+  isAutoEnabled = e.target.checked;
+  clearTimeout(autoTimer);
+  if (isAutoEnabled) scheduleNext();
+});
+
+dwellSlider.addEventListener('input', e => {
+  dwellMs = parseFloat(e.target.value) * 1000;
+  dwellVal.textContent = `${e.target.value} שנ׳`;
+});
+
+speedSlider.addEventListener('input', e => {
+  const v = parseInt(e.target.value);
+  spinDuration = SPEED_DUR[v]; speedVal.textContent = SPEED_LBL[v];
+});
+
+fxSelect.addEventListener('change', e => { fxIntensity = parseInt(e.target.value); });
+
+soundToggle.addEventListener('change', e => {
+  soundEnabled = e.target.checked;
+  if (masterGain) masterGain.gain.value = soundEnabled ? masterVolume : 0;
+});
+
+volSlider.addEventListener('input', e => {
+  masterVolume = parseInt(e.target.value) / 100;
+  volVal.textContent = `${e.target.value}%`;
+  if (masterGain) masterGain.gain.value = soundEnabled ? masterVolume : 0;
+});
+
+spinNowBtn.addEventListener('click', () => { if (!isAnimating) randomSpin(); });
+
+/* ═══════════════════════════════════════════
+   כפתורי תצוגה מקדימה לשמע
+═══════════════════════════════════════════ */
+EMOTIONS_DEF.forEach(e => {
+  const btn = document.createElement('button');
+  btn.className = 'preview-btn';
+  btn.textContent = `${e.emoji} ${e.name}`;
+  btn.addEventListener('click', () => {
+    ensureAudio();
+    if (e.sound) e.sound();
+  });
+  previewGrid.appendChild(btn);
+});
+
+/* ═══════════════════════════════════════════
+   אתחול
+═══════════════════════════════════════════ */
+cube.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+</script>
+</body>
+</html>
